@@ -1,0 +1,124 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Solana Meme Coin Generator</title>
+  <script src="https://cdn.jsdelivr.net/npm/@solana/web3.js@latest/lib/index.iife.min.js"></script>
+  <style>
+    body {
+      font-family: sans-serif;
+      background: #0b0e14;
+      color: white;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      height: 100vh;
+      margin: 0;
+    }
+    input, button {
+      padding: 10px;
+      margin: 5px;
+      border-radius: 8px;
+      border: none;
+      font-size: 16px;
+    }
+    button {
+      background-color: #14f195;
+      color: #000;
+      cursor: pointer;
+    }
+    .container {
+      background: #1a1d24;
+      padding: 30px;
+      border-radius: 16px;
+      box-shadow: 0 0 20px rgba(20, 241, 149, 0.2);
+      width: 90%;
+      max-width: 400px;
+      text-align: center;
+    }
+    #status {
+      margin-top: 10px;
+      color: #14f195;
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <h2>Create Your Solana Meme Coin</h2>
+    <input type="text" id="name" placeholder="Token Name" />
+    <input type="text" id="symbol" placeholder="Token Symbol (e.g. MEME)" />
+    <input type="number" id="supply" placeholder="Total Supply (e.g. 1000000)" />
+    <input type="number" id="decimals" placeholder="Decimals (e.g. 6)" />
+    <button onclick="connectWallet()">Connect Wallet</button>
+    <button onclick="createToken()">Launch Token</button>
+    <div id="status"></div>
+  </div>
+
+  <script>
+    let provider = null;
+    let connection = new solanaWeb3.Connection("https://api.mainnet-beta.solana.com");
+
+    async function connectWallet() {
+      if (window.solana && window.solana.isPhantom) {
+        try {
+          const resp = await window.solana.connect();
+          provider = window.solana;
+          document.getElementById("status").innerText = `Wallet connected: ${resp.publicKey}`;
+        } catch (err) {
+          document.getElementById("status").innerText = `Wallet connection failed.`;
+        }
+      } else {
+        alert("Please install Phantom Wallet");
+      }
+    }
+
+    async function createToken() {
+      if (!provider) return alert("Please connect your Phantom wallet first.");
+
+      const name = document.getElementById("name").value;
+      const symbol = document.getElementById("symbol").value;
+      const supply = parseInt(document.getElementById("supply").value);
+      const decimals = parseInt(document.getElementById("decimals").value);
+
+      if (!name || !symbol || !supply || isNaN(decimals)) {
+        return alert("Please fill in all fields correctly.");
+      }
+
+      const fromWallet = provider.publicKey;
+
+      try {
+        document.getElementById("status").innerText = "Creating token...";
+
+        const mint = solanaWeb3.Keypair.generate();
+
+        const tx = new solanaWeb3.Transaction();
+        const lamports = await solanaWeb3.Token.getMinBalanceRentForExemptMint(connection);
+
+        tx.add(
+          solanaWeb3.SystemProgram.createAccount({
+            fromPubkey: fromWallet,
+            newAccountPubkey: mint.publicKey,
+            lamports,
+            space: solanaWeb3.MintLayout.span,
+            programId: solanaWeb3.TOKEN_PROGRAM_ID,
+          }),
+          solanaWeb3.Token.createInitMintInstruction(
+            solanaWeb3.TOKEN_PROGRAM_ID,
+            mint.publicKey,
+            decimals,
+            fromWallet,
+            null
+          )
+        );
+
+        document.getElementById("status").innerText = `Token created: ${mint.publicKey.toBase58()}`;
+      } catch (e) {
+        console.error(e);
+        document.getElementById("status").innerText = "Error creating token.";
+      }
+    }
+  </script>
+</body>
+</html>
